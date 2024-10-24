@@ -1,9 +1,8 @@
 // src/components/TerrainCanvas.jsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import p5 from "p5";
-import woodIconPath from "../assets/wood_icon.png";
-import stoneIconPath from "../assets/stone_icon.png";
-import waterIconPath from "../assets/water_icon.png";
+import resources from "../utils/resources"; // Importer les ressources
+import Popup from "./Popup"; // Importer le composant Popup
 
 class TerrainType {
     constructor(minHeight, maxHeight, minColor, maxColor, lerpAdjustment = 0) {
@@ -16,27 +15,30 @@ class TerrainType {
 }
 
 const TerrainCanvas = () => {
+    const [popupData, setPopupData] = useState(null);
+    
     useEffect(() => {
         const sketch = (p) => {
-            let waterTerrain,
+            let deepwaterTerrain,
+                waterTerrain,
                 sandTerrain,
                 grassTerrain,
+                forestTerrain,
                 mountainTerrain,
                 snowMountainTerrain;
-            let woodIcon, stoneIcon, waterIcon;
             let items = [];
-            let zoomFactor = 100;
+            let zoomFactor = 125;
             let mapChanged = true;
             let xOffset = 10000;
             let yOffset = 10000;
 
-            // Définir une marge pour éviter les bords
             const margin = 50;
 
             p.preload = () => {
-                woodIcon = p.loadImage(woodIconPath);
-                stoneIcon = p.loadImage(stoneIconPath);
-                waterIcon = p.loadImage(waterIconPath);
+                // Chargement des icônes depuis les ressources
+                Object.keys(resources).forEach((key) => {
+                    resources[key].icon = p.loadImage(resources[key].icon);
+                });
             };
 
             p.setup = () => {
@@ -46,6 +48,13 @@ const TerrainCanvas = () => {
                 p.noiseDetail(8, 0.5);
 
                 // Initialisation des terrains
+                deepwaterTerrain = new TerrainType(
+                    0,
+                    0.2,
+                    p.color(0, 0, 139),
+                    p.color(30, 176, 251)
+                );
+
                 waterTerrain = new TerrainType(
                     0.2,
                     0.4,
@@ -61,9 +70,15 @@ const TerrainCanvas = () => {
                 );
                 grassTerrain = new TerrainType(
                     0.5,
-                    0.7,
+                    0.65,
                     p.color(118, 239, 124),
                     p.color(75, 175, 75)
+                );
+                forestTerrain = new TerrainType(
+                    0.65,
+                    0.7,
+                    grassTerrain.maxColor,
+                    p.color(34, 139, 34)
                 );
                 mountainTerrain = new TerrainType(
                     0.7,
@@ -74,8 +89,8 @@ const TerrainCanvas = () => {
                 snowMountainTerrain = new TerrainType(
                     0.8,
                     1.0,
-                    p.color(255, 255, 255),
-                    p.color(240, 240, 240)
+                    mountainTerrain.maxColor,
+                    p.color(255, 255, 255)
                 );
 
                 // Générer les icônes sur la carte
@@ -83,13 +98,15 @@ const TerrainCanvas = () => {
             };
 
             const generateItems = () => {
-                let woodCount = 3;
-                let stoneCount = 3;
-                let waterCount = 3;
+                // Récupérer les compteurs à partir des ressources
+                const itemCounts = {
+                    woodCount: resources.wood.count,
+                    stoneCount: resources.stone.count,
+                    waterCount: resources.water.count,
+                };
+                const quantity = resources.wood.quantity; // Assumons que tous ont la même quantité pour simplifier
 
-                // Génération de la carte et des icônes
-                while (woodCount > 0 || stoneCount > 0 || waterCount > 0) {
-                    // Générer des coordonnées en respectant la marge
+                while (itemCounts.woodCount > 0 || itemCounts.stoneCount > 0 || itemCounts.waterCount > 0) {
                     const x = p.random(margin, p.width - margin);
                     const y = p.random(margin, p.height - margin);
                     const noiseValue = p.noise(
@@ -98,38 +115,30 @@ const TerrainCanvas = () => {
                     );
 
                     // Placer de l'eau
-                    if (waterCount > 0 && noiseValue < waterTerrain.maxHeight) {
-                        items.push({ icon: waterIcon, position: { x, y } });
-                        console.log(
-                            `Water icon placed at: (${x.toFixed(2)}, ${y.toFixed(2)})`
-                        );
-                        waterCount--;
+                    if (itemCounts.waterCount > 0 && noiseValue < waterTerrain.maxHeight && noiseValue >= waterTerrain.minHeight) {
+                        items.push({ icon: resources.water.icon, position: { x, y }, type: 'water', quantity });
+                        itemCounts.waterCount--;
                     }
                     // Placer de la pierre
                     else if (
-                        stoneCount > 0 &&
+                        itemCounts.stoneCount > 0 &&
                         noiseValue >= mountainTerrain.minHeight &&
                         noiseValue < mountainTerrain.maxHeight
                     ) {
-                        items.push({ icon: stoneIcon, position: { x, y } });
-                        console.log(
-                            `Stone icon placed at: (${x.toFixed(2)}, ${y.toFixed(2)})`
-                        );
-                        stoneCount--;
+                        items.push({ icon: resources.stone.icon, position: { x, y }, type: 'stone', quantity });
+                        itemCounts.stoneCount--;
                     }
                     // Placer du bois
                     else if (
-                        woodCount > 0 &&
+                        itemCounts.woodCount > 0 &&
                         noiseValue >= grassTerrain.minHeight &&
-                        noiseValue < mountainTerrain.minHeight
+                        noiseValue < forestTerrain.minHeight
                     ) {
-                        items.push({ icon: woodIcon, position: { x, y } });
-                        console.log(
-                            `Wood icon placed at: (${x.toFixed(2)}, ${y.toFixed(2)})`
-                        );
-                        woodCount--;
+                        items.push({ icon: resources.wood.icon, position: { x, y }, type: 'wood', quantity });
+                        itemCounts.woodCount--;
                     }
                 }
+                console.log(items);
             };
 
             p.draw = () => {
@@ -142,12 +151,16 @@ const TerrainCanvas = () => {
                         const noiseValue = p.noise(xVal, yVal);
 
                         let terrainColor;
-                        if (noiseValue < waterTerrain.maxHeight) {
+                        if (noiseValue < deepwaterTerrain.maxHeight) {
+                            terrainColor = getTerrainColor(noiseValue, deepwaterTerrain);
+                        } else if (noiseValue < waterTerrain.maxHeight) {
                             terrainColor = getTerrainColor(noiseValue, waterTerrain);
                         } else if (noiseValue < sandTerrain.maxHeight) {
                             terrainColor = getTerrainColor(noiseValue, sandTerrain);
                         } else if (noiseValue < grassTerrain.maxHeight) {
                             terrainColor = getTerrainColor(noiseValue, grassTerrain);
+                        } else if (noiseValue < forestTerrain.maxHeight) {
+                            terrainColor = getTerrainColor(noiseValue, forestTerrain);
                         } else if (noiseValue < mountainTerrain.maxHeight) {
                             terrainColor = getTerrainColor(noiseValue, mountainTerrain);
                         } else {
@@ -159,7 +172,6 @@ const TerrainCanvas = () => {
                 p.updatePixels();
                 mapChanged = false;
 
-                // Affichage des icônes à leurs positions respectives
                 items.forEach((item) => {
                     const iconWidth = 32; // Largeur de l'icône
                     const iconHeight = 32; // Hauteur de l'icône
@@ -192,6 +204,27 @@ const TerrainCanvas = () => {
                 return (value - min) / (max - min);
             };
 
+            // Gestion des clics
+            p.mousePressed = () => {
+                const x = p.mouseX;
+                const y = p.mouseY;
+
+                const clickedItem = items.find((item) => {
+                    const iconWidth = 32; // Largeur de l'icône
+                    const iconHeight = 32; // Hauteur de l'icône
+                    return (
+                        x >= item.position.x - iconWidth / 2 &&
+                        x <= item.position.x + iconWidth / 2 &&
+                        y >= item.position.y - iconHeight / 2 &&
+                        y <= item.position.y + iconHeight / 2
+                    );
+                });
+
+                if (clickedItem) {
+                    setPopupData({ type: clickedItem.type, position: clickedItem.position, quantity: clickedItem.quantity });
+                }
+            };
+
             p.windowResized = () => {
                 p.resizeCanvas(p.windowWidth, p.windowHeight);
                 p.redraw();
@@ -205,7 +238,16 @@ const TerrainCanvas = () => {
         };
     }, []);
 
-    return null; // Ce composant ne rend rien d'autre que le canvas
+    // Fonction pour fermer la popup
+    const closePopup = () => {
+        setPopupData(null);
+    };
+
+    return (
+        <>
+            <Popup data={popupData} onClose={closePopup} />
+        </>
+    );
 };
 
 export default TerrainCanvas;
