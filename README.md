@@ -1,56 +1,71 @@
-# Ecosystem Simulation
+# Atlas des Brumes — SimGame
 
-Ecosystem Simulation est un projet utilisant **React**, **p5.js** et **Vite** pour générer un terrain procédural avec différents types de ressources. Le terrain est généré à l'aide du bruit de Perlin, offrant une carte unique à chaque lancement. Des ressources telles que du bois, de la pierre et de l'eau sont automatiquement placées en fonction de leur environnement sur la carte.
+Atlas des Brumes est une démo de portfolio entièrement statique qui transforme une seed en carte d’exploration interactive. Le relief est généré avec du bruit de Perlin, réparti en sept biomes, puis peuplé de ressources cohérentes avec leur environnement.
+
+Démo : [https://a52cents.github.io/SimGame/](https://a52cents.github.io/SimGame/)
 
 ## Fonctionnalités
 
-- **Génération de terrain procédurale** : Utilisation du bruit de Perlin pour créer des cartes avec des biomes variés (eau, sable, herbe, montagnes, neige).
-- **Placement des ressources** : Les ressources sont placées automatiquement :
-  - Le bois est placé sur les zones herbeuses.
-  - La pierre sur les montagnes.
-  - L'eau près des étendues d'eau.
-- **Rendu dynamique** : Le terrain et les ressources sont rendus de manière dynamique grâce à **p5.js**.
+- génération d’une nouvelle carte et d’une nouvelle seed à la demande ;
+- sept biomes : eaux profondes, côtes, rivages, prairies, forêts, montagnes et neige ;
+- placement déterministe du bois, de la pierre et de l’eau selon le biome ;
+- navigation fluide à la souris, au tactile et au clavier ;
+- zoom à la molette, par pincement ou avec les boutons dédiés ;
+- popup de ressource accessible avec quantité et coordonnées ;
+- légende et panneau explicatif adaptatifs ;
+- interface responsive et respect de `prefers-reduced-motion` ;
+- déploiement automatisé sur GitHub Pages.
 
-## Installation
+## Contrôles
 
-### Prérequis
+| Action | Souris / tactile | Clavier |
+| --- | --- | --- |
+| Se déplacer | Glisser sur la carte | Flèches directionnelles |
+| Zoomer | Molette, pincement, boutons `+` / `−` | `+` / `−` |
+| Vue initiale | Bouton « Vue initiale » | `0` ou `Home` |
+| Inspecter une ressource | Clic ou toucher | `Entrée` au centre de la vue |
+| Fermer une popup | Clic extérieur ou bouton « Fermer » | `Échap` |
 
-- **Node.js** (v14 ou supérieur)
-- **npm** ou **yarn**
+## Choix techniques
 
-### Étapes
+Le terrain possède ses propres coordonnées monde (`1440 × 960`) et la caméra applique ensuite déplacement et zoom. Les ressources restent donc alignées avec le relief quelle que soit la vue.
 
-1. Clonez le dépôt :
+Pour éviter le coûteux parcours de tous les pixels à chaque interaction, la génération produit une seule texture interne de `720 × 480` via le pixel buffer de p5.js avec `pixelDensity(1)`. Cette texture est mise à l’échelle et réutilisée tant que la seed ne change pas. Les panoramiques et zooms ne régénèrent jamais le bruit.
 
-   ```bash
-   git clone https://github.com/your-username/your-repository.git
+Le projet reste volontairement léger : React, p5.js et Vite, sans routeur, backend ni service externe.
 
-2. Allez dans le dossier du projet :
+## Installation locale
 
-    ```bash
-    cd your-repository
+Prérequis : Node.js 20.19+ ou 22.12+ et npm.
 
-3. Installez les dependances :
+```bash
+git clone https://github.com/a52cents/SimGame.git
+cd SimGame
+npm ci
+npm run dev
+```
 
-     ```bash
-     npm install
+Vite indique l’URL locale, généralement [http://localhost:5173](http://localhost:5173).
 
-4. Lancez l'application en mode développement :
+## Vérifications
 
-     ```bash
-     npm run dev
+```bash
+npm run lint
+npm run build
+npm run preview
+```
 
-Ouvrez [http://localhost:3000](http://localhost:5173) pour voir l'application dans votre navigateur.
+La configuration Vite utilise la base `/SimGame/`. Les assets générés dans `dist` sont donc compatibles avec l’URL du dépôt GitHub Pages.
 
-## Technologies Utilisées
+## Déploiement GitHub Pages
 
-- **React** : Librairie pour construire l'interface utilisateur.
-- **Vite** : Outil de build rapide pour le développement moderne.
-- **p5.js** : Librairie JavaScript pour le rendu créatif du terrain et des ressources.
-- **Bruit de Perlin** : Utilisé pour la génération procédurale du terrain.
+Le workflow [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) se déclenche sur chaque push vers `main` ou manuellement. Il installe les dépendances avec `npm ci`, exécute le lint et le build, téléverse `dist`, puis effectue le déploiement Pages.
 
-## Améliorations Futures
+Après avoir poussé les fichiers :
 
-- Ajouter de nouveaux types de ressources et de terrains.
-- Implémenter le zoom et le déplacement de la carte.
-- Ajouter de l'interactivité sur les ressources.
+1. ouvrir le dépôt GitHub, puis **Settings → Pages** ;
+2. dans **Build and deployment**, choisir **GitHub Actions** comme source ;
+3. ouvrir l’onglet **Actions** et attendre la réussite du workflow « Deploy to GitHub Pages » ;
+4. accéder à [https://a52cents.github.io/SimGame/](https://a52cents.github.io/SimGame/).
+
+Le site est statique : aucun secret ni backend n’est nécessaire.
